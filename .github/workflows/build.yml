@@ -1,14 +1,14 @@
-name: Build debug APK (mirror)
+name: Build debug APK
 on:
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: "Branch of yq-ui/dsh-Go"
+        default: root-dev
       runtime:
         description: "Build the bundled runtime (false = UI-only fast build)"
         type: boolean
         default: true
-      source_ref:
-        description: "Branch of yq-ui/dsh-Go to build"
-        default: root-dev
 permissions:
   contents: read
 jobs:
@@ -30,10 +30,10 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: \'17\'
+          java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: \'3.47.7\'
+          flutter-version: '3.47.7'
           channel: stable
           cache: true
       - name: cache gradle
@@ -42,7 +42,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ hashFiles(\'app/android/**/*.gradle*\', \'app/android/gradle/wrapper/gradle-wrapper.properties\') }}
+          key: gradle-${{ hashFiles('app/android/**/*.gradle*', 'app/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-
       - name: cache runtime inputs
         uses: actions/cache@v4
@@ -54,7 +54,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: runtime/out
-          key: runtime-out-${{ hashFiles(\'runtime/build-runtime.sh\', \'runtime/lib/**\', \'runtime/patches/**\', \'runtime/locks/**\') }}
+          key: runtime-out-${{ hashFiles('runtime/build-runtime.sh', 'runtime/lib/**', 'runtime/patches/**', 'runtime/locks/**') }}
       - name: pub get
         working-directory: app
         run: flutter pub get
@@ -64,7 +64,7 @@ jobs:
       - name: build side debug arm64
         working-directory: app
         env:
-          DSH_SIDE_BUILD: \'1\'
+          DSH_SIDE_BUILD: '1'
         run: flutter build apk --debug --flavor arm64 -t lib/main.dart
       - uses: actions/upload-artifact@v4
         with:
@@ -72,3 +72,4 @@ jobs:
           path: app/build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 7
+
