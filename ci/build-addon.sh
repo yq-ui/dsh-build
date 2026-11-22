@@ -12,7 +12,27 @@ T="$A/tree"
 P="$T/opt/dsh-re-tools"
 mkdir -p "$P/python" "$P/rizin" "$P/jar" "$P/lib" "$P/bin" "$T/usr/local/bin" "$T/etc/profile.d"
 
-get() { curl -fsSL --retry 6 --retry-delay 3 --max-time 1800 -o "$2" "$1"; }
+# ADDON_CACHE: optional directory of files named by their URL basename; a re-run or an offline
+# test then skips the network.
+ADDON_CACHE=$(printenv ADDON_CACHE || true)
+get() {
+  name=$(basename "$1")
+  if [ -n "$ADDON_CACHE" ] && [ -f "$ADDON_CACHE/$name" ]; then
+    cp -f "$ADDON_CACHE/$name" "$2"
+    return 0
+  fi
+  attempt=0
+  while [ "$attempt" -lt 8 ]; do
+    attempt=$((attempt+1))
+    if curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors --connect-timeout 30         --speed-limit 4096 --speed-time 60 --max-time 1800 -o "$2.part" "$1"; then
+      mv -f "$2.part" "$2"
+      return 0
+    fi
+    sleep $((attempt*2))
+  done
+  echo "download failed: $1" >&2
+  return 1
+}
 
 i=0
 for u in \
@@ -105,11 +125,27 @@ PYTHONPATH="/opt/dsh-re-tools/python:$PYTHONPATH"
 export PATH PYTHONPATH
 EOS
 
-ln -sf /opt/dsh-re-tools/bin/rizin "$T/usr/local/bin/rizin"
-ln -sf /opt/dsh-re-tools/bin/lldb "$T/usr/local/bin/lldb"
-ln -sf /opt/dsh-re-tools/bin/lldb-server "$T/usr/local/bin/lldb-server"
-ln -sf /opt/dsh-re-tools/bin/semgrep "$T/usr/local/bin/semgrep"
-ln -sf /opt/dsh-re-tools/bin/jadx-mcp "$T/usr/local/bin/jadx-mcp"
+# The app copies regular files only, so every link becomes a real file: the rizin multi-call
+# names become argv[0]-preserving wrappers, everything else is dereferenced (small libs/binaries).
+find "$T" -xtype l -delete 2>/dev/null || true
+for l in "$P"/rizin/bin/rz-* ; do
+  [ -L "$l" ] || continue
+  n=$(basename "$l")
+  printf '#!/bin/bash\nexec -a %s /opt/dsh-re-tools/rizin/bin/rizin "$@"\n' "$n" > "$l.tmp"
+  chmod 755 "$l.tmp"
+  mv -f "$l.tmp" "$l"
+done
+find "$T" -type l -print0 | while IFS= read -r -d '' l ; do
+  t=$(readlink -f "$l" || true)
+  if [ -z "$t" ] || [ ! -f "$t" ]; then rm -f "$l"; continue; fi
+  sz=$(stat -c %s "$t")
+  if [ "$sz" -le 33554432 ]; then
+    cp -Lf "$l" "$l.tmp" && chmod 755 "$l.tmp" && mv -f "$l.tmp" "$l"
+  else
+    rm -f "$l"
+  fi
+done
+find "$T" -type l | wc -l
 
 : > "$A/exec.txt"
 for f in "$P/bin/rizin" "$P/bin/rz-bin" "$P/bin/lldb" "$P/bin/lldb-server" "$P/bin/jadx-mcp" "$P/bin/semgrep" ; do
@@ -129,8 +165,15 @@ python3 - "$A" <<'PY'
 import json, os, sys
 a = sys.argv[1]
 tree = os.path.join(a, "tree")
-files = sum(len(f) for _, _, f in os.walk(tree))
-size = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(tree) for f in fs)
+files = 0
+size = 0
+for r, _, fs in os.walk(tree):
+    for f in fs:
+        p = os.path.join(r, f)
+        if os.path.islink(p):
+            continue
+        files += 1
+        size += os.path.getsize(p)
 json.dump({"v": 1, "files": files, "bytes": size}, open(os.path.join(a, "manifest.json"), "w"))
 print("add-on files", files, "bytes", size)
 PY
