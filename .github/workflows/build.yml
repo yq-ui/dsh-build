@@ -76,6 +76,7 @@ jobs:
       - name: publish release asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: yq-ui/dsh-build
         run: |
           TAG="apk-$(date +%Y%m%d)-${{ github.run_id }}"
           gh release create "$TAG" --title "$TAG" --notes "source=${{ inputs.source_ref }}" || true
