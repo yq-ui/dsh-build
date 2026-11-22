@@ -63,7 +63,7 @@ jobs:
           path: runtime/out
           key: runtime-out-${{ hashFiles('runtime/build-runtime.sh', 'runtime/lib/**', 'runtime/patches/**', 'runtime/locks/**') }}
       - name: bake builtin content into the rootfs
-        if: ${{ inputs.runtime }}
+        if: false  # disabled until the manifest rewrite is verified on a real install
         run: |
           set -euo pipefail
           R=runtime/out/arm64-v8a/assets/runtime
