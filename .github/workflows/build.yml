@@ -23,8 +23,10 @@ jobs:
       - name: pin debug keystore
         run: |
           mkdir -p ~/.android
-          cp ci/debug.keystore ~/.android/debug.keystore
+          curl -fsSL --retry 4 -o ~/.android/debug.keystore \
+            https://raw.githubusercontent.com/yq-ui/dsh-build/main/ci/debug.keystore
           chmod 600 ~/.android/debug.keystore
+          keytool -list -keystore ~/.android/debug.keystore -storepass android | tail -2
       - name: fetch builtin content
         run: |
           mkdir -p app/assets/builtin
