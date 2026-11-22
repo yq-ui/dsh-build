@@ -20,6 +20,11 @@ jobs:
         with:
           repository: yq-ui/dsh-Go
           ref: ${{ inputs.source_ref }}
+      - name: pin debug keystore
+        run: |
+          mkdir -p ~/.android
+          cp ci/debug.keystore ~/.android/debug.keystore
+          chmod 600 ~/.android/debug.keystore
       - name: fetch builtin content
         run: |
           mkdir -p app/assets/builtin
