@@ -10,7 +10,7 @@ on:
         type: boolean
         default: true
 permissions:
-  contents: read
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-24.04
@@ -73,3 +73,11 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: publish release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="apk-$(date +%Y%m%d)-${{ github.run_id }}"
+          gh release create "$TAG" --title "$TAG" --notes "source=${{ inputs.source_ref }}" || true
+          gh release upload "$TAG" app/build/app/outputs/flutter-apk/*.apk --clobber
+          echo "APK_RELEASE=$TAG" >> $GITHUB_ENV
