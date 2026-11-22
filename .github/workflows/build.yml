@@ -27,6 +27,10 @@ jobs:
             https://raw.githubusercontent.com/yq-ui/dsh-build/main/ci/debug.keystore
           chmod 600 ~/.android/debug.keystore
           keytool -list -keystore ~/.android/debug.keystore -storepass android | tail -2
+          # Sign with that key explicitly. Relying on ~/.android alone let AGP mint a new
+          # debug key on every run, so each build needed an uninstall before installing.
+          printf 'storeFile=%s\nstorePassword=android\nkeyAlias=androiddebugkey\nkeyPassword=android\n' "$HOME/.android/debug.keystore" > app/android/key.properties
+          cat app/android/key.properties
       - name: fetch builtin content
         run: |
           mkdir -p app/assets/builtin
