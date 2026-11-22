@@ -74,7 +74,10 @@ get https://github.com/1013503897/jadx-headless-mcp/releases/download/v0.8.0/jad
 
 get https://repo1.maven.org/maven2/org/eclipse/jgit/org.eclipse.jgit/7.8.1.202611041320-r/org.eclipse.jgit-7.8.1.202611041320-r.jar "$P/lib/org.eclipse.jgit.jar"
 get https://repo1.maven.org/maven2/org/eclipse/lsp4j/org.eclipse.lsp4j/1.0.0/org.eclipse.lsp4j-1.0.0.jar "$P/lib/org.eclipse.lsp4j.jar"
-get https://repo1.maven.org/maven2/io/modelcontextprotocol/kotlin-sdk-jvm/0.16.0/kotlin-sdk-jvm-0.16.0.jar "$P/lib/kotlin-sdk-jvm.jar"
+# The MCP Kotlin SDK splits into core/client/server on the JVM; the plain -jvm jar is a stub.
+get https://repo1.maven.org/maven2/io/modelcontextprotocol/kotlin-sdk-core-jvm/0.16.0/kotlin-sdk-core-jvm-0.16.0.jar "$P/lib/kotlin-sdk-core.jar"
+get https://repo1.maven.org/maven2/io/modelcontextprotocol/kotlin-sdk-client-jvm/0.16.0/kotlin-sdk-client-jvm-0.16.0.jar "$P/lib/kotlin-sdk-client.jar"
+get https://repo1.maven.org/maven2/io/modelcontextprotocol/kotlin-sdk-server-jvm/0.16.0/kotlin-sdk-server-jvm-0.16.0.jar "$P/lib/kotlin-sdk-server.jar"
 get https://repo1.maven.org/maven2/io/github/Rosemoe/sora-editor/editor/0.23.6/editor-0.23.6.aar "$P/lib/sora-editor.aar"
 
 # A dangling link would fail the app's copy; the LLDB Python bindings are not needed.
