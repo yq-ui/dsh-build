@@ -39,7 +39,7 @@ jobs:
           test -s app/assets/builtin/builtin.zip
           ls -l app/assets/builtin/builtin.zip
       - name: build reverse toolchain add-on
-        run: bash ci/build-addon.sh app/assets/builtin/re-toolchain-addon.zip /tmp/re-addon
+        run: bash ci/build-addon.sh app/assets/builtin/re-toolchain-addon.zip /tmp/re-addon  # script lives in the checked-out fork
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
