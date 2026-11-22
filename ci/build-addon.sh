@@ -130,6 +130,21 @@ PYTHONPATH="/opt/dsh-re-tools/python:$PYTHONPATH"
 export PATH PYTHONPATH
 EOS
 
+# ── 侦察/Web 工具（官方 arm64）与自研 connect-scan
+mkdir -p "$P/bin" "$P/sqlmap"
+for z in subfinder:2.17.0:subfinder_2.17.0_linux_arm64.zip httpx:1.12.0:httpx_1.12.0_linux_arm64.zip dnsx:1.3.1:dnsx_1.3.1_linux_arm64.zip ; do
+  n=$(echo "$z" | cut -d: -f1); v=$(echo "$z" | cut -d: -f2); f=$(echo "$z" | cut -d: -f3)
+  get "https://github.com/projectdiscovery/$n/releases/download/v$v/$f" "/tmp/$f"
+  unzip -oq "/tmp/$f" -d "$P/bin"
+done
+get https://github.com/ffuf/ffuf/releases/download/v2.3.0/ffuf_2.3.0_linux_arm64.tar.gz /tmp/ffuf.tgz
+tar -xzf /tmp/ffuf.tgz -C "$P/bin" ffuf
+get https://github.com/sqlmapproject/sqlmap/archive/refs/tags/1.10.2.tar.gz /tmp/sqlmap.tgz
+tar -xzf /tmp/sqlmap.tgz -C "$P/sqlmap" --strip-components=1
+get https://files.pythonhosted.org/packages/8a/26/548439f5192e496fff7f54d41d8762fa8f3712d53c8441b9f57d7c7a8310/volatility3-2.28.2-py3-none-any.whl /tmp/volatility3.whl
+unzip -q -o /tmp/volatility3.whl -d "$P/python"
+cp "$(dirname "$0")/connect_scan.py" "$P/bin/connect-scan"
+chmod 755 "$P/bin/subfinder" "$P/bin/httpx" "$P/bin/dnsx" "$P/bin/ffuf" "$P/bin/connect-scan"
 # The app copies regular files only, so every link becomes a real file: the rizin multi-call
 # names become argv[0]-preserving wrappers, everything else is dereferenced (small libs/binaries).
 find "$T" -xtype l -delete 2>/dev/null || true
