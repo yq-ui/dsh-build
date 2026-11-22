@@ -38,6 +38,8 @@ jobs:
             https://github.com/yq-ui/dsh-Go/releases/download/builtin-v5/builtin.zip
           test -s app/assets/builtin/builtin.zip
           ls -l app/assets/builtin/builtin.zip
+      - name: build reverse toolchain add-on
+        run: bash ci/build-addon.sh app/assets/builtin/re-toolchain-addon.zip /tmp/re-addon
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
