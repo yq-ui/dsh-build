@@ -1,0 +1,74 @@
+name: Build debug APK (mirror)
+on:
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: "Build the bundled runtime (false = UI-only fast build)"
+        type: boolean
+        default: true
+      source_ref:
+        description: "Branch of yq-ui/dsh-Go to build"
+        default: root-dev
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: yq-ui/dsh-Go
+          ref: ${{ inputs.source_ref }}
+      - name: fetch builtin content
+        run: |
+          mkdir -p app/assets/builtin
+          curl -fsSL --retry 6 --retry-delay 3 -o app/assets/builtin/builtin.zip \
+            https://github.com/yq-ui/dsh-Go/releases/download/builtin-v5/builtin.zip
+          test -s app/assets/builtin/builtin.zip
+          ls -l app/assets/builtin/builtin.zip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: \'17\'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: \'3.47.7\'
+          channel: stable
+          cache: true
+      - name: cache gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles(\'app/android/**/*.gradle*\', \'app/android/gradle/wrapper/gradle-wrapper.properties\') }}
+          restore-keys: gradle-
+      - name: cache runtime inputs
+        uses: actions/cache@v4
+        with:
+          path: runtime/.cache
+          key: runtime-inputs-r15-dsh0.2.2-rc.1
+      - name: cache built runtime
+        if: ${{ inputs.runtime }}
+        uses: actions/cache@v4
+        with:
+          path: runtime/out
+          key: runtime-out-${{ hashFiles(\'runtime/build-runtime.sh\', \'runtime/lib/**\', \'runtime/patches/**\', \'runtime/locks/**\') }}
+      - name: pub get
+        working-directory: app
+        run: flutter pub get
+      - name: build bundled runtime (arm64)
+        if: ${{ inputs.runtime }}
+        run: bash runtime/build-runtime.sh arm64-v8a
+      - name: build side debug arm64
+        working-directory: app
+        env:
+          DSH_SIDE_BUILD: \'1\'
+        run: flutter build apk --debug --flavor arm64 -t lib/main.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-go-side-debug-arm64
+          path: app/build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: error
+          retention-days: 7
