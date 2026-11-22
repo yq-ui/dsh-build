@@ -25,6 +25,14 @@ for u in \
   get "$u" "/tmp/addon-w$i.whl"
   unzip -q -o "/tmp/addon-w$i.whl" -d "$P/python"
 done
+# A wheel may keep its payload under <name>.data/purelib (semgrep does); pip would move it.
+for d in "$P/python"/*.data ; do
+  [ -d "$d" ] || continue
+  [ -d "$d/purelib" ] && cp -a "$d/purelib/." "$P/python/"
+  [ -d "$d/platlib" ] && cp -a "$d/platlib/." "$P/python/"
+  [ -d "$d/scripts" ] && mkdir -p "$P/bin" && cp -a "$d/scripts/." "$P/bin/"
+  rm -rf "$d"
+done
 
 get https://github.com/rizinorg/rizin/releases/download/v0.9.1/rizin-v0.9.1-android-aarch64.tar.gz /tmp/addon-rizin.tgz
 mkdir -p /tmp/addon-rizin && tar -xzf /tmp/addon-rizin.tgz -C /tmp/addon-rizin
@@ -37,6 +45,10 @@ for d in lldb-18_18.1.3-1 liblldb-18_18.1.3-1 python3-lldb-18_18.1.3-1 ; do
   dpkg-deb -x "/tmp/addon-$d.deb" /tmp/addon-lldb
 done
 cp -a /tmp/addon-lldb/. "$T/"
+# LLDB wants the narrow ncurses/panel sonames; the rootfs ships only the wide ones.
+get "http://ports.ubuntu.com/ubuntu-ports/pool/main/n/ncurses/libncurses6_6.4+20240113-1ubuntu2_arm64.deb" /tmp/addon-ncurses.deb
+dpkg-deb -x /tmp/addon-ncurses.deb /tmp/addon-lldb2
+cp -a /tmp/addon-lldb2/. "$T/"
 
 get https://github.com/1013503897/jadx-headless-mcp/releases/download/v0.8.0/jadx-headless-mcp-0.8.0-all.jar "$P/jar/jadx-headless-mcp.jar"
 
@@ -44,6 +56,15 @@ get https://repo1.maven.org/maven2/org/eclipse/jgit/org.eclipse.jgit/7.8.1.20261
 get https://repo1.maven.org/maven2/org/eclipse/lsp4j/org.eclipse.lsp4j/1.0.0/org.eclipse.lsp4j-1.0.0.jar "$P/lib/org.eclipse.lsp4j.jar"
 get https://repo1.maven.org/maven2/io/modelcontextprotocol/kotlin-sdk-jvm/0.16.0/kotlin-sdk-jvm-0.16.0.jar "$P/lib/kotlin-sdk-jvm.jar"
 get https://repo1.maven.org/maven2/io/github/Rosemoe/sora-editor/editor/0.23.6/editor-0.23.6.aar "$P/lib/sora-editor.aar"
+
+# A dangling link would fail the app's copy; the LLDB Python bindings are not needed.
+rm -rf "$T/usr/lib/llvm-18/lib/python3.12/site-packages/lldb" 2>/dev/null || true
+find "$T" -xtype l -delete 2>/dev/null || true
+
+# Trim what only wastes space in the APK: static archives, bytecode, debug symbols.
+find "$P/python" -name '*.a' -delete 2>/dev/null || true
+find "$P/python" -name '*.pyc' -delete 2>/dev/null || true
+strip --strip-unneeded "$P/python/semgrep/bin/semgrep-core" 2>/dev/null || true
 
 cat > "$P/bin/rizin" <<'EOS'
 #!/bin/sh
@@ -59,11 +80,11 @@ exec /opt/dsh-re-tools/rizin/bin/rz-bin "$@"
 EOS
 cat > "$P/bin/lldb" <<'EOS'
 #!/bin/sh
-exec /opt/dsh-re-tools/lldb/bin/lldb "$@"
+exec /usr/lib/llvm-18/bin/lldb "$@"
 EOS
 cat > "$P/bin/lldb-server" <<'EOS'
 #!/bin/sh
-exec /opt/dsh-re-tools/lldb/bin/lldb-server "$@"
+exec /usr/lib/llvm-18/bin/lldb-server "$@"
 EOS
 cat > "$P/bin/jadx-mcp" <<'EOS'
 #!/bin/sh
