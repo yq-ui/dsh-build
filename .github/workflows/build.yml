@@ -62,6 +62,68 @@ jobs:
         with:
           path: runtime/out
           key: runtime-out-${{ hashFiles('runtime/build-runtime.sh', 'runtime/lib/**', 'runtime/patches/**', 'runtime/locks/**') }}
+      - name: bake builtin content into the rootfs
+        if: ${{ inputs.runtime }}
+        run: |
+          set -euo pipefail
+          R=runtime/out/arm64-v8a/assets/runtime
+          test -f "$R/rootfs-arm64-v8a.tar.xz"
+          W=$(mktemp -d)
+          mkdir -p "$W/rootfs" "$W/pack"
+          tar -xJf "$R/rootfs-arm64-v8a.tar.xz" -C "$W/rootfs"
+          unzip -q app/assets/builtin/builtin.zip -d "$W/pack"
+          mkdir -p "$W/rootfs/root/.dsh/skills" "$W/rootfs/root/.dsh/dsh-go/plugins" "$W/rootfs/opt/dsh-app/builtin/plugins"
+          cp -a "$W/pack/skills/." "$W/rootfs/root/.dsh/skills/"
+          cp -a "$W/pack/native/." "$W/rootfs/root/.dsh/dsh-go/plugins/"
+          cp -a "$W/pack/cordis/." "$W/rootfs/opt/dsh-app/builtin/plugins/"
+          mkdir -p "$W/rootfs/root/.dsh/dsh-app/builtin-docs"
+          cp -a "$W/pack/docs/." "$W/rootfs/root/.dsh/dsh-app/builtin-docs/"
+          python3 - "$W/rootfs" "$W/pack" <<'PY'
+          import json, os, shutil, sys
+          rootfs, pack = sys.argv[1], sys.argv[2]
+          manifest = json.load(open(os.path.join(pack, 'manifest.json')))
+          profile = os.path.join(rootfs, 'root/.dsh/profiles/web')
+          modules = os.path.join(profile, 'node_modules')
+          entries = []
+          for name in manifest.get('native', []):
+              entries.append((name, '/root/.dsh/dsh-go/plugins/' + name, os.path.join(pack, 'native', name)))
+          for plugin in manifest.get('cordis', []):
+              entries.append((plugin['name'], '/opt/dsh-app/builtin/plugins/' + plugin['dir'], os.path.join(pack, 'cordis', plugin['dir'])))
+          if os.path.isdir(profile):
+              os.makedirs(modules, exist_ok=True)
+              for name, guest_path, source in entries:
+                  target = os.path.join(modules, name)
+                  shutil.rmtree(target, ignore_errors=True)
+                  shutil.copytree(source, target)
+              path = os.path.join(profile, 'package.json')
+              data = json.load(open(path)) if os.path.isfile(path) else {'dependencies': {}, 'dsh': {'profile': {'bundles': []}}}
+              deps = data.setdefault('dependencies', {})
+              bundles = data.setdefault('dsh', {}).setdefault('profile', {}).setdefault('bundles', [])
+              for name, guest_path, _ in entries:
+                  deps.setdefault(name, 'link:' + guest_path)
+                  if name not in bundles:
+                      bundles.append(name)
+              json.dump(data, open(path, 'w'), indent=1)
+              print('baked profile registration:', len(entries))
+          else:
+              print('no profiles/web in the image; the app registers after its first boot')
+          PY
+          tar -C "$W/rootfs" --numeric-owner --owner=0 --group=0 --sort=name -cJf "$R/rootfs-arm64-v8a.tar.xz" .
+          python3 - "$R" <<'PY'
+          import hashlib, json, lzma, os, sys
+          r = sys.argv[1]
+          archive = os.path.join(r, 'rootfs-arm64-v8a.tar.xz')
+          raw = lzma.decompress(open(archive, 'rb').read())
+          m = json.load(open(os.path.join(r, 'manifest.json')))
+          m['rootfsSha256'] = hashlib.sha256(open(archive, 'rb').read()).hexdigest()
+          m['rootfsBytes'] = os.path.getsize(archive)
+          m['tarSha256'] = hashlib.sha256(raw).hexdigest()
+          m['tarBytes'] = len(raw)
+          m['uncompressedBytes'] = len(raw)
+          json.dump(m, open(os.path.join(r, 'manifest.json'), 'w'), indent=1)
+          print('manifest updated', m['rootfsBytes'])
+          PY
+          rm -rf "$W"
       - name: pub get
         working-directory: app
         run: flutter pub get
