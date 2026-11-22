@@ -7,6 +7,8 @@
 set -euo pipefail
 OUT="$1"
 A="$2"
+mkdir -p "$(dirname "$OUT")"
+OUT="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 rm -rf "$A"; mkdir -p "$A/tree"
 T="$A/tree"
 P="$T/opt/dsh-re-tools"
